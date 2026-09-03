@@ -1,0 +1,7 @@
+/vendor/
+/.idea/
+/.phpunit.cache/
+/.phpstan.cache/
+/.psalm/cache/
+composer.lock
+.php-cs-fixer.cache

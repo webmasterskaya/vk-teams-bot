@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<psalm
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config https://getpsalm.org/schema/config.xsd"
+    errorLevel="1"
+    phpVersion="8.2"
+    resolveFromConfigFile="true"
+    findUnusedCode="false"
+    findUnusedBaselineEntry="true"
+>
+    <projectFiles>
+        <directory name="src" />
+        <directory name="tests" />
+        <ignoreFiles>
+            <directory name="vendor" />
+            <file name="tests/lint.php" />
+        </ignoreFiles>
+    </projectFiles>
+    <issueHandlers>
+        <!-- The native #[Override] attribute is only available since PHP 8.3. -->
+        <MissingOverrideAttribute errorLevel="suppress" />
+    </issueHandlers>
+</psalm>

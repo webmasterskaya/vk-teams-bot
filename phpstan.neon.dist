@@ -1,0 +1,14 @@
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+    excludePaths:
+        analyse:
+            - tests/lint.php
+    tmpDir: .phpstan.cache
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: false
+    checkExplicitMixed: true
+
+    editorUrl: 'phpstorm://open?file=%%file%%&line=%%line%%'

@@ -15,6 +15,8 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use PsrDiscovery\Discover;
 use RuntimeException;
 use Throwable;
@@ -51,12 +53,14 @@ final class Bot
         ?RequestFactoryInterface $requestFactory = null,
         ?StreamFactoryInterface $streamFactory = null,
         private readonly bool $myTeam = false,
+        ?LoggerInterface $logger = null,
     ) {
         $this->httpClient = $httpClient ?? Psr18ClientDiscovery::find();
         $this->eventDispatcher = $eventDispatcher ?? Discover::eventDispatcher(singleton: true)
             ?? throw new RuntimeException('No PSR-14 event dispatcher implementation was discovered.');
         $this->requestFactory = $requestFactory ?? Psr17FactoryDiscovery::findRequestFactory();
         $this->streamFactory = $streamFactory ?? Psr17FactoryDiscovery::findStreamFactory();
+        $this->logger = $logger ?? new NullLogger();
         $tokenParts = explode(':', $token);
         $this->uin = end($tokenParts);
     }
@@ -65,6 +69,7 @@ final class Bot
     private readonly EventDispatcherInterface $eventDispatcher;
     private readonly RequestFactoryInterface $requestFactory;
     private readonly StreamFactoryInterface $streamFactory;
+    private readonly LoggerInterface $logger;
 
     public function httpClient(): ClientInterface
     {
@@ -170,14 +175,17 @@ final class Bot
                 $this->pollOnce();
                 $consecutiveErrors = 0;
             } catch (Throwable $error) {
-                if ($onError !== null) {
-                    $onError($error, $this);
-                } else {
-                    error_log(sprintf('%s: %s', $error::class, $error->getMessage()));
-                }
                 $retryDelay = $error instanceof InvalidTokenException
                     ? 5
                     : min(30, 1 << min($consecutiveErrors, 5));
+                $this->logger->error('Polling failed.', [
+                    'exception' => $error,
+                    'retry_delay' => $retryDelay,
+                    'consecutive_errors' => $consecutiveErrors + 1,
+                ]);
+                if ($onError !== null) {
+                    $onError($error, $this);
+                }
                 ++$consecutiveErrors;
                 sleep($retryDelay);
             }

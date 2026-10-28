@@ -12,6 +12,7 @@ use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\AbstractLogger;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Webmasterskaya\VkTeamsBot\Bot;
 use Webmasterskaya\VkTeamsBot\Enum\EventType;
@@ -169,6 +170,51 @@ final class BotTest extends TestCase
             );
             self::assertInstanceOf(\JsonException::class, $exception->getPrevious());
         }
+    }
+
+    public function testPollingErrorsAreSentToInjectedLogger(): void
+    {
+        $http = new FakeClient();
+        $http->responses[] = new Response(502, [], '<html>Bad gateway</html>');
+        $logger = new class extends AbstractLogger {
+            /** @var list<array{level: mixed, message: string, context: array<array-key, mixed>}> */
+            public array $records = [];
+
+            /**
+             * @param mixed $level
+             * @param mixed $message
+             * @param array<array-key, mixed> $context
+             */
+            public function log($level, $message, array $context = []): void
+            {
+                if (!is_string($message) && !$message instanceof \Stringable) {
+                    throw new InvalidArgumentException('Expected a PSR-3 log message.');
+                }
+                $this->records[] = [
+                    'level' => $level,
+                    'message' => (string) $message,
+                    'context' => $context,
+                ];
+            }
+        };
+        $bot = new Bot('token', httpClient: $http, logger: $logger);
+        $stop = new \RuntimeException('stop polling');
+
+        try {
+            $bot->startPolling(static function () use ($stop): void {
+                throw $stop;
+            });
+            self::fail('Expected the error callback to stop polling.');
+        } catch (\RuntimeException $exception) {
+            self::assertSame($stop, $exception);
+        }
+
+        self::assertCount(1, $logger->records);
+        self::assertSame('error', $logger->records[0]['level']);
+        self::assertSame('Polling failed.', $logger->records[0]['message']);
+        self::assertInstanceOf(ApiException::class, $logger->records[0]['context']['exception']);
+        self::assertSame(1, $logger->records[0]['context']['retry_delay']);
+        self::assertSame(1, $logger->records[0]['context']['consecutive_errors']);
     }
 
     public function testTypesSerializeUnicodeAndFormattingRanges(): void

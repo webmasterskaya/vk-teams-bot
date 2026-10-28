@@ -58,6 +58,18 @@ Set the bot token in the `VK_TEAMS_BOT_TOKEN` environment variable before runnin
 
 Polling reconnects automatically after transient transport and HTTP 5xx errors, using an exponential retry delay capped at 30 seconds.
 
+Polling errors can be sent to any PSR-3-compatible logger through the named `logger` argument:
+
+```php
+$bot = new Bot(
+    getenv('VK_TEAMS_BOT_TOKEN'),
+    eventDispatcher: $dispatcher,
+    logger: $logger,
+);
+```
+
+When no logger is provided, `Psr\Log\NullLogger` is used and the SDK does not write logs on its own. The `$onError` argument of `startPolling()` remains available for custom error handling.
+
 ## Custom Bot API URL
 
 The SDK sends requests to `https://api.icq.net/bot/v1` by default. For an on-premises or dedicated MyTeam installation, pass its Bot API endpoint through `apiUrlBase`:

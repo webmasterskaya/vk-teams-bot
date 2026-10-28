@@ -32,7 +32,7 @@ use Webmasterskaya\VkTeamsBot\Type\InlineKeyboardMarkup;
 
 final class Bot
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '1.1.0';
     public const DEFAULT_API_URL = 'https://api.icq.net/bot/v1';
 
     public readonly string $uin;

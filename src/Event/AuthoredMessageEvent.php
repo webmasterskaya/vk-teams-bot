@@ -22,4 +22,9 @@ abstract class AuthoredMessageEvent extends MessageEvent
     {
         return $this->arrayValue('from');
     }
+
+    public function getAuthorId(): ?string
+    {
+        return $this->stringValue('userId', $this->getAuthor());
+    }
 }

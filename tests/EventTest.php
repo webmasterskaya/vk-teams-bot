@@ -68,6 +68,7 @@ final class EventTest extends TestCase
         self::assertSame('private', $event->getChatType());
         self::assertSame('Chat', $event->getChatTitle());
         self::assertSame(['userId' => 'user-1'], $event->getAuthor());
+        self::assertSame('user-1', $event->getAuthorId());
         self::assertSame(1_546_290_000, $event->getTimestamp());
         self::assertSame('Hello!', $event->getText());
         self::assertSame(['bold' => []], $event->getFormat());

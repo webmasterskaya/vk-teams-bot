@@ -1,11 +1,10 @@
 parameters:
     level: max
+    phpVersion: 80200
     paths:
+        - examples
         - src
         - tests
-    excludePaths:
-        analyse:
-            - tests/lint.php
     tmpDir: .phpstan.cache
     reportUnmatchedIgnoredErrors: true
     treatPhpDocTypesAsCertain: false

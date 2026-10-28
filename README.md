@@ -1,20 +1,37 @@
 # VK Teams Bot SDK
 
+[![CI](https://github.com/webmasterskaya/vk-teams-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/webmasterskaya/vk-teams-bot/actions/workflows/ci.yml)
+[![Latest Stable Version](https://poser.pugx.org/webmasterskaya/vk-teams-bot/v/stable)](https://packagist.org/packages/webmasterskaya/vk-teams-bot)
+[![PHP Version Require](https://poser.pugx.org/webmasterskaya/vk-teams-bot/require/php)](https://packagist.org/packages/webmasterskaya/vk-teams-bot)
+[![License](https://poser.pugx.org/webmasterskaya/vk-teams-bot/license)](LICENSE)
+
 [English version](README_en.md)
 
-Неофициальный SDK для [VK Teams Bot API](https://teams.vk.com/botapi/) на PHP 8.2+, основанный на публичном API и поведении официального [SDK для Python](https://github.com/mail-ru-im/bot-python).
+Неофициальный PHP SDK для [VK Teams Bot API](https://teams.vk.com/botapi/). Позволяет отправлять сообщения и файлы, управлять чатами и получать события через long polling.
 
 > Это независимый проект сообщества. Он не связан с VK, Mail.ru или их аффилированными лицами, не поддерживается, не авторизован и не одобрен ими.
 
+## Требования
+
+- PHP 8.2 или новее с расширением JSON;
+- [Composer](https://getcomposer.org/);
+- реализации PSR-18/PSR-17 для HTTP-запросов и PSR-14 для событий.
+
+SDK автоматически находит установленные PSR-реализации. В новом проекте проще всего использовать Guzzle и Symfony EventDispatcher, как показано ниже. Если в приложении уже есть совместимые реализации, устанавливать их повторно не нужно.
+
 ## Установка
 
-Выберите реализации PSR-18/PSR-17 и PSR-14, которые используются в вашем приложении. Например, для Guzzle и Symfony EventDispatcher выполните:
+Для нового проекта:
 
 ```bash
 composer require webmasterskaya/vk-teams-bot guzzlehttp/guzzle symfony/event-dispatcher
 ```
 
-Пакету требуются PHP 8.2 и расширение JSON.
+Если HTTP-клиент, HTTP-фабрики и диспетчер событий уже установлены:
+
+```bash
+composer require webmasterskaya/vk-teams-bot
+```
 
 ## Быстрый старт
 
@@ -36,9 +53,13 @@ $bot = new Bot(getenv('VK_TEAMS_BOT_TOKEN'), eventDispatcher: $dispatcher);
 $bot->startPolling(); // блокирующий цикл длительного опроса
 ```
 
-Пример с кнопками и callback-запросами находится в файле [`examples/echo_bot.php`](examples/echo_bot.php).
+Перед запуском задайте токен бота в переменной окружения `VK_TEAMS_BOT_TOKEN`. Полный пример с командами `/start` и `/id`, кнопками и callback-запросами находится в [`examples/echo_bot.php`](examples/echo_bot.php).
 
-По умолчанию SDK использует `https://api.icq.net/bot/v1`, как и оригинальный SDK для Python. Для локальной или выделенной установки MyTeam явно передайте адрес Bot API:
+При временных транспортных ошибках и HTTP-ошибках 5xx polling автоматически восстанавливает соединение. Между повторными попытками используется экспоненциальная задержка до 30 секунд.
+
+## Сторонний URL Bot API
+
+По умолчанию SDK отправляет запросы на `https://api.icq.net/bot/v1`. Для локальной или выделенной установки MyTeam передайте свой адрес Bot API в `apiUrlBase`:
 
 ```php
 $bot = new Bot(
@@ -48,22 +69,64 @@ $bot = new Bot(
 );
 ```
 
-При временных транспортных ошибках и HTTP-ошибках 5xx опрос автоматически возобновляет соединение. Для повторных попыток используется экспоненциальная задержка, ограниченная 30 секундами.
+Для методов `createChat()` и `addChatMembers()` локальной установки также включите режим MyTeam с помощью аргумента `myTeam: true`.
 
-## API
+## Часто используемые методы
 
-Класс `Bot` предоставляет методы для конечных точек SDK для Python в стиле camelCase:
+Все методы API возвращают `Psr\Http\Message\ResponseInterface`.
 
-- сообщения: `sendText`, `sendFile`, `sendVoice`, `editText`, `deleteMessages`, `answerCallbackQuery`;
-- чаты: `sendActions`, методы получения информации, управления участниками и модерации, а также методы для заголовка, описания, правил и закрепления сообщений;
+### Отправить сообщение
+
+```php
+$bot->sendText('chat-id', 'Привет!');
+```
+
+Ответить на сообщение можно с помощью именованного аргумента:
+
+```php
+$bot->sendText('chat-id', 'Готово', replyMsgId: 'message-id');
+```
+
+### Отправить файл
+
+```php
+$bot->sendFile(
+    'chat-id',
+    file: __DIR__ . '/report.pdf',
+    caption: 'Отчёт',
+);
+```
+
+Чтобы повторно отправить уже загруженный файл, передайте `fileId` вместо `file`.
+
+### Изменить или удалить сообщение
+
+```php
+$bot->editText('chat-id', 'message-id', 'Исправленный текст');
+$bot->deleteMessages('chat-id', 'message-id');
+```
+
+### Получить информацию о чате
+
+```php
+$response = $bot->getChatInfo('chat-id');
+$chat = json_decode(
+    (string) $response->getBody(),
+    true,
+    flags: JSON_THROW_ON_ERROR,
+);
+```
+
+Другие доступные операции:
+
+- сообщения: `sendVoice`, `answerCallbackQuery`;
+- чаты: `sendActions`, получение участников и администраторов, модерация, изменение заголовка, описания и правил, закрепление сообщений;
 - файлы: `getFileInfo`;
 - треды: `threadsGetSubscribers`, `threadsAutosubscribe`, `threadsAdd`;
 - бот и события: `selfGet`, `eventsGet`, `pollOnce`, `startPolling`, `stop`;
-- локальные установки/MyTeam: `createChat`, `addChatMembers`, `deleteChatMembers` (для создания чатов и добавления участников передайте `myTeam: true` в конструктор бота).
+- MyTeam: `createChat`, `addChatMembers`, `deleteChatMembers`.
 
-Каждый метод API возвращает стандартный `Psr\Http\Message\ResponseInterface`. Для декодирования JSON-ответа используйте `json_decode((string) $response->getBody(), true, flags: JSON_THROW_ON_ERROR)`.
-
-### Клавиатура и форматирование
+## Клавиатура и форматирование
 
 ```php
 use Webmasterskaya\VkTeamsBot\Enum\ParseMode;
@@ -71,16 +134,21 @@ use Webmasterskaya\VkTeamsBot\Type\InlineKeyboardMarkup;
 use Webmasterskaya\VkTeamsBot\Type\KeyboardButton;
 
 $keyboard = (new InlineKeyboardMarkup())->row(
-    new KeyboardButton('Open', url: 'https://example.com'),
-    new KeyboardButton('Confirm', callbackData: 'confirm'),
+    new KeyboardButton('Открыть', url: 'https://example.com'),
+    new KeyboardButton('Подтвердить', callbackData: 'confirm'),
 );
 
-$bot->sendText('chat-id', '<b>Hello</b>', inlineKeyboardMarkup: $keyboard, parseMode: ParseMode::Html);
+$bot->sendText(
+    'chat-id',
+    '<b>Привет!</b>',
+    inlineKeyboardMarkup: $keyboard,
+    parseMode: ParseMode::Html,
+);
 ```
 
-Для явного задания диапазонов форматирования используйте `Webmasterskaya\VkTeamsBot\Type\Format`. Как и в SDK для Python, параметры `parseMode` и `format` нельзя передавать одновременно.
+Для явного задания диапазонов форматирования используйте `Webmasterskaya\VkTeamsBot\Type\Format`. Параметры `parseMode` и `format` нельзя передавать одновременно.
 
-### Диспетчер событий PSR-14
+## События PSR-14
 
 События передаются через `Psr\EventDispatcher\EventDispatcherInterface`. Если аргумент `eventDispatcher:` не указан, установленная реализация обнаруживается с помощью `psr-discovery/event-dispatcher-implementations`. Для слушателей приложения сначала настройте диспетчер, а затем передайте этот экземпляр боту.
 
@@ -108,29 +176,11 @@ $bot = new Bot($token, eventDispatcher: $dispatcher);
 
 SDK использует `Psr\Http\Client\ClientInterface` и возвращает ответы PSR-7. Если клиент или фабрики PSR-17 не переданы явно, `php-http/discovery` находит установленные реализации. Явно заданные аргументы `httpClient:`, `requestFactory:` и `streamFactory:` всегда имеют приоритет. Параметры транспорта, например прокси и тайм-ауты, настраиваются в переданной реализации PSR-18.
 
-### TLS-сертификаты в Windows
+## Известные проблемы
 
-Ошибка `cURL error 60` означает, что процесс PHP не может построить доверенную цепочку сертификатов. Не обходите эту проблему с помощью `verify => false`. Сначала проверьте, какую конфигурацию фактически загружает тот же исполняемый файл PHP:
+Решения для ошибок TLS в Windows, отсутствующих PSR-реализаций и других типовых проблем собраны в [базе знаний известных проблем](docs/known-issues.md).
 
-```powershell
-php --ini
-php -i | findstr /I "curl.cainfo openssl.cafile"
-```
-
-Укажите для `curl.cainfo` и `openssl.cafile` в этом файле `php.ini` актуальный пакет корневых сертификатов в формате PEM, а затем перезапустите терминал, IDE или службу PHP. Транспорт также можно настроить явно, не привязывая сам SDK к Guzzle:
-
-```php
-use GuzzleHttp\Client;
-use Webmasterskaya\VkTeamsBot\Bot;
-
-$httpClient = new Client([
-    'verify' => 'C:/php/extras/ssl/cacert.pem',
-]);
-
-$bot = new Bot($token, httpClient: $httpClient, eventDispatcher: $dispatcher);
-```
-
-Пример эхо-бота принимает тот же путь через переменную `VK_TEAMS_CA_BUNDLE`. Загружайте актуальный пакет корневых сертификатов Mozilla только со [страницы CA Extract проекта curl](https://curl.se/docs/caextract.html). Токен бота скрывается в сообщениях о транспортных исключениях до того, как они покинут SDK.
+Если нужного случая там нет, [создайте issue](https://github.com/webmasterskaya/vk-teams-bot/issues/new) и приложите версию PHP, операционную систему и полный текст ошибки без токена бота.
 
 ## Разработка
 
@@ -145,3 +195,9 @@ composer psalm
 ```
 
 Команда `cs:check` проверяет код на соответствие PER Coding Style 2.0 и применимым правилам миграции PHP 8.2; `cs:fix` применяет те же правила. Набор тестов PHPUnit использует поддельный HTTP-клиент и не требует настоящего токена бота. Guzzle и Symfony EventDispatcher используются только при разработке для проверки механизма обнаружения реализаций. Команда `composer analyse` запускает PHPStan на уровне `max` и Psalm с уровнем ошибок 1.
+
+## Лицензия
+
+Проект распространяется на условиях лицензии MIT. Вы можете свободно использовать, копировать, изменять и распространять его, в том числе в коммерческих проектах, при условии сохранения уведомления об авторских правах и текста лицензии.
+
+Подробнее см. в файле [LICENSE](LICENSE).

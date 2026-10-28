@@ -16,8 +16,41 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  tests:
+    name: Tests (PHP ${{ matrix.php-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version:
+          - '8.2'
+          - '8.3'
+          - '8.4'
+          - '8.5'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run syntax linter
+        run: composer lint
+
+      - name: Run tests
+        run: composer test
+
   quality:
-    name: Linters, tests and static analysis
+    name: Code style and static analysis
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -38,14 +71,30 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Run syntax linter
-        run: composer lint
+      - name: Run static analysis
+        run: composer analyse
 
       - name: Check code style
         run: composer cs:check
 
+  lowest-dependencies:
+    name: Lowest dependencies (PHP 8.2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install lowest supported dependencies
+        run: composer update --prefer-lowest --prefer-dist --no-interaction --no-progress
+
       - name: Run tests
         run: composer test
-
-      - name: Run static analysis
-        run: composer analyse

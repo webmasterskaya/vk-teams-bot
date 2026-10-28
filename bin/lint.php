@@ -3,10 +3,11 @@
 declare(strict_types=1);
 
 $failed = false;
+$projectRoot = dirname(__DIR__);
 
-foreach (['examples', 'src', 'tests'] as $directory) {
+foreach (['bin', 'examples', 'src', 'tests'] as $directory) {
     $iterator = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator(dirname(__DIR__) . '/' . $directory, FilesystemIterator::SKIP_DOTS),
+        new RecursiveDirectoryIterator($projectRoot . '/' . $directory, FilesystemIterator::SKIP_DOTS),
     );
 
     foreach ($iterator as $file) {

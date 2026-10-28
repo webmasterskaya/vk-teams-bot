@@ -7,6 +7,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 use GuzzleHttp\Client;
 use Symfony\Component\EventDispatcher\EventDispatcher;
 use Webmasterskaya\VkTeamsBot\Bot;
+use Webmasterskaya\VkTeamsBot\Enum\ChatType;
 use Webmasterskaya\VkTeamsBot\Event\CallbackQueryEvent;
 use Webmasterskaya\VkTeamsBot\Event\NewMessageEvent;
 use Webmasterskaya\VkTeamsBot\Type\InlineKeyboardMarkup;
@@ -37,7 +38,30 @@ $dispatcher->addListener(CallbackQueryEvent::class, static function (CallbackQue
 });
 
 $dispatcher->addListener(NewMessageEvent::class, static function (NewMessageEvent $event): void {
-    if (trim($event->getText() ?? '') === '/start') {
+    $command = trim($event->getText() ?? '');
+
+    if ($command === '/id') {
+        $chatType = ChatType::tryFrom($event->getChatType() ?? '');
+        $id = match ($chatType) {
+            ChatType::Private => $event->getAuthorId() ?? $event->getChatId(),
+            ChatType::Group, ChatType::Channel, null => $event->getChatId(),
+        };
+        $entity = match ($chatType) {
+            ChatType::Private => 'пользователя',
+            ChatType::Group => 'группы',
+            ChatType::Channel => 'канала',
+            null => 'чата',
+        };
+        $message = $id === null
+            ? 'Не удалось определить ID.'
+            : sprintf('ID %s: %s', $entity, $id);
+
+        $event->getBot()->sendText($event->getChatId() ?? '', $message);
+
+        return;
+    }
+
+    if ($command === '/start') {
         $keyboard = (new InlineKeyboardMarkup())->row(
             new KeyboardButton('VK Teams', url: 'https://teams.vk.com'),
             new KeyboardButton('Ping', callbackData: 'ping'),

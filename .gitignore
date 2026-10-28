@@ -1,8 +1,17 @@
 /vendor/
 /.idea/
+
+# Tool caches
 /.phpunit.cache/
 /.phpstan.cache/
 /.psalm/cache/
-composer.lock
-.php-cs-fixer.cache
-.phpunit.result.cache
+/.php-cs-fixer.cache
+/.phpunit.result.cache
+
+# Local configuration
+/phpunit.xml
+/phpstan.neon
+/.php-cs-fixer.php
+
+# Libraries should not commit dependency lock files
+/composer.lock

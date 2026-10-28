@@ -43,6 +43,7 @@ final class Bot
      * @throws \PsrDiscovery\Exceptions\SupportPackageNotFoundException
      */
     public function __construct(
+        #[\SensitiveParameter]
         private readonly string $token,
         private readonly string $apiUrlBase = self::DEFAULT_API_URL,
         private readonly ?string $name = null,
